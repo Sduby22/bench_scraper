@@ -17,6 +17,7 @@ pub enum Error {
     SQLError(rusqlite::Error),
     /// A failure while parsing binary cookie data.
     BinaryError(nom::error::Error<Vec<u8>>),
+    NoDefaultPath,
 }
 
 impl From<pbkdf2::password_hash::errors::Error> for Error {

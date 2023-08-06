@@ -1,4 +1,4 @@
-use bench_scraper::find_cookies;
+use bench_scraper::find_cookies_all;
 use regex::Regex;
 use reqwest::blocking::Client;
 use reqwest::cookie::Jar;
@@ -8,7 +8,7 @@ fn main() {
     // terrible but good enough yay!
     let email_regex = Regex::new(r#""[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z0-9]{2,}""#).unwrap();
 
-    for browser_cookie in find_cookies().unwrap().into_iter() {
+    for browser_cookie in find_cookies_all().unwrap().into_iter() {
         let jar: Jar = browser_cookie.cookies.into_iter().collect();
         let client = Client::builder()
             .cookie_store(true)

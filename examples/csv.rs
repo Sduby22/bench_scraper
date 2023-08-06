@@ -1,12 +1,12 @@
-use bench_scraper::find_cookies;
+use bench_scraper::find_cookies_all;
 
 fn main() {
     let mut wtr = csv::Writer::from_writer(std::io::stdout());
-    let browser_cookies = find_cookies().unwrap();
+    let browser_cookies = find_cookies_all().unwrap();
     for browser_cookie in browser_cookies.iter() {
         let browser_name = format!("{:?}", browser_cookie.browser);
         for cookie in browser_cookie.cookies.iter() {
-            wtr.write_record(&[
+            wtr.write_record([
                 &browser_name,
                 &cookie.host,
                 &cookie.path,

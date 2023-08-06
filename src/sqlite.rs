@@ -18,6 +18,21 @@ pub enum SqliteBrowserEngine {
     Firefox,
 }
 
+pub enum HostKey {
+    All,
+    Host(String),
+}
+
+impl From<&str> for HostKey {
+    fn from(s: &str) -> Self {
+        if s == "*" {
+            HostKey::All
+        } else {
+            HostKey::Host(s.to_string())
+        }
+    }
+}
+
 fn parse_chromium_sql_row(
     key: ChromiumKeyRef,
     row: &rusqlite::Row,
@@ -108,6 +123,26 @@ pub struct Connection {
 }
 
 impl Connection {
+    pub fn run_statement(
+        &self,
+        engine: SqliteBrowserEngine,
+        statement_txt: &str,
+    ) -> Result<Vec<Cookie>, Error> {
+        let mut statement = self.connection.prepare(statement_txt)?;
+        //let header_values: rusqlite::MappedRows<_> = match engine {
+        let values: Result<Vec<Option<Cookie>>, rusqlite::Error> = match engine {
+            SqliteBrowserEngine::Firefox => {
+                statement.query_map([], parse_firefox_sql_row)?.collect()
+            }
+            SqliteBrowserEngine::Chromium(key) => statement
+                .query_map([], |v| parse_chromium_sql_row(&key, v))?
+                .collect(),
+        };
+        //let values: Vec<Option<Cookie>> = header_values.collect::<Result<_, rusqlite::Error>>()?;
+        let x: Vec<Option<Cookie>> = values?;
+        Ok(x.into_iter().flatten().collect())
+    }
+
     /// Connects to a SQLite database at the given path.
     ///
     /// The connection returned by this function can read the database even if another program has a lock on it.
@@ -124,26 +159,24 @@ impl Connection {
     /// Loads all the cookies from the given SQLite connection.
     ///
     /// The engine determines how the database will be queried, as different browser engines use different schemas to track cookies.
-    pub fn fetch_sqlite_cookies(&self, engine: SqliteBrowserEngine) -> Result<Vec<Cookie>, Error>
+    pub fn fetch_sqlite_cookies(
+        &self,
+        engine: SqliteBrowserEngine,
+        host: &HostKey,
+    ) -> Result<Vec<Cookie>, Error>
 //F: FnMut(&rusqlite::Row) -> Result<Option<Cookie>, rusqlite::Error>,
     {
-        let statement_txt = match engine {
+        let query_base = match engine {
             SqliteBrowserEngine::Firefox => FIREFOX_QUERY,
             SqliteBrowserEngine::Chromium(_) => CHROMIUM_QUERY,
         };
-        let mut statement = self.connection.prepare(statement_txt)?;
-        //let header_values: rusqlite::MappedRows<_> = match engine {
-        let values: Result<Vec<Option<Cookie>>, rusqlite::Error> = match engine {
-            SqliteBrowserEngine::Firefox => {
-                statement.query_map([], parse_firefox_sql_row)?.collect()
-            }
-            SqliteBrowserEngine::Chromium(key) => statement
-                .query_map([], |v| parse_chromium_sql_row(&key, v))?
-                .collect(),
+
+        let statement_txt = match host {
+            HostKey::All => query_base.to_string(),
+            HostKey::Host(host) => format!("{} WHERE host = '{}'", query_base, host),
         };
-        //let values: Vec<Option<Cookie>> = header_values.collect::<Result<_, rusqlite::Error>>()?;
-        let x: Vec<Option<Cookie>> = values?;
-        Ok(x.into_iter().flatten().collect())
+
+        self.run_statement(engine, &statement_txt)
     }
 }
 
@@ -165,7 +198,7 @@ mod tests {
     #[test]
     fn test_fetch_sqlite_cookies_none() {
         let connection = make_mem_connection();
-        let result = connection.fetch_sqlite_cookies(SqliteBrowserEngine::Firefox);
+        let result = connection.fetch_sqlite_cookies(SqliteBrowserEngine::Firefox, &HostKey::All);
         match result {
             Err(Error::SQLError(rusqlite::Error::SqliteFailure(
                 libsqlite3_sys::Error {
@@ -192,10 +225,10 @@ mod tests {
         #[cfg(any(target_os = "linux", target_os = "macos"))]
         let key = Vec::default();
         let result = connection
-            .fetch_sqlite_cookies(SqliteBrowserEngine::Chromium(key))
+            .fetch_sqlite_cookies(SqliteBrowserEngine::Chromium(key), &HostKey::All)
             .unwrap();
         assert!(result.is_empty());
-        let result = connection.fetch_sqlite_cookies(SqliteBrowserEngine::Firefox);
+        let result = connection.fetch_sqlite_cookies(SqliteBrowserEngine::Firefox, &HostKey::All);
         match result {
             Err(Error::SQLError(rusqlite::Error::SqliteFailure(
                 libsqlite3_sys::Error {
@@ -221,7 +254,8 @@ mod tests {
         let key = None;
         #[cfg(any(target_os = "linux", target_os = "macos"))]
         let key = Vec::default();
-        let result = connection.fetch_sqlite_cookies(SqliteBrowserEngine::Chromium(key));
+        let result =
+            connection.fetch_sqlite_cookies(SqliteBrowserEngine::Chromium(key), &HostKey::All);
         match result {
             Err(Error::SQLError(rusqlite::Error::SqliteFailure(
                 libsqlite3_sys::Error {
@@ -237,7 +271,7 @@ mod tests {
             }
         };
         let result = connection
-            .fetch_sqlite_cookies(SqliteBrowserEngine::Firefox)
+            .fetch_sqlite_cookies(SqliteBrowserEngine::Firefox, &HostKey::All)
             .unwrap();
         assert!(result.is_empty());
     }
