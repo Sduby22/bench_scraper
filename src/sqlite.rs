@@ -5,7 +5,7 @@ use crate::crypt::{decrypt_chromium_cookie_value, ChromiumKey, ChromiumKeyRef};
 use crate::Error;
 use crate::{Cookie, SameSite};
 
-const CHROMIUM_QUERY: &str = "SELECT name, value, host_key, path, expires_utc, creation_utc, is_secure, is_httponly, last_access_utc, encrypted_value, has_expires, samesite FROM cookies";
+const CHROMIUM_QUERY: &str = "SELECT name, value, host_key as host, path, expires_utc, creation_utc, is_secure, is_httponly, last_access_utc, encrypted_value, has_expires, samesite FROM cookies";
 const FIREFOX_QUERY: &str = "SELECT name, value, host, path, expiry, creationTime, isSecure, isHttpOnly, lastAccessed, sameSite FROM moz_cookies";
 
 #[derive(Debug, EnumIter)]
