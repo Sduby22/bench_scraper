@@ -116,12 +116,15 @@ pub fn find_cookies_all() -> Result<Vec<KnownBrowserCookies>, Error> {
 }
 
 ///
-pub fn find_cookies_all_at(browser: KnownBrowser) -> Result<Vec<KnownBrowserCookies>, Error> {
-    Ok(find_cookies(
+pub fn find_cookies_all_at(browser: KnownBrowser) -> Result<KnownBrowserCookies, Error> {
+    find_cookies(
         browser,
         &browser.default_config_path().ok_or(Error::NoDefaultPath)?,
         HostKey::All,
-    ))
+    )
+    .into_iter()
+    .next()
+    .ok_or(Error::NoCookiesFound)
 }
 
 /// Fetches all the cookies from a given browser with a given config path
