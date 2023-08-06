@@ -108,7 +108,7 @@ pub fn find_cookies_all() -> Result<Vec<KnownBrowserCookies>, Error> {
     let mut all_cookies = Vec::default();
     for browser in KnownBrowser::iter() {
         if let Some(path) = browser.default_config_path() {
-            let mut cookies = find_cookies_at(browser, &path, HostKey::All);
+            let mut cookies = find_cookies(browser, &path, HostKey::All);
             all_cookies.append(&mut cookies);
         }
     }
@@ -117,7 +117,7 @@ pub fn find_cookies_all() -> Result<Vec<KnownBrowserCookies>, Error> {
 
 ///
 pub fn find_cookies_all_at(browser: KnownBrowser) -> Result<Vec<KnownBrowserCookies>, Error> {
-    Ok(find_cookies_at(
+    Ok(find_cookies(
         browser,
         &browser.default_config_path().ok_or(Error::NoDefaultPath)?,
         HostKey::All,
@@ -128,7 +128,15 @@ pub fn find_cookies_all_at(browser: KnownBrowser) -> Result<Vec<KnownBrowserCook
 ///
 /// This config path overrides the browser's default config path.
 /// This is useful when pulling from a non-standard installation path or from a backup of config data.
-pub fn find_cookies_at(
+pub fn find_cookies_at(browser: KnownBrowser, host: &str) -> Vec<KnownBrowserCookies> {
+    find_cookies(
+        browser,
+        &browser.default_config_path().unwrap(),
+        HostKey::from(host),
+    )
+}
+
+fn find_cookies(
     browser: KnownBrowser,
     path: &std::path::Path,
     host: HostKey,
@@ -159,7 +167,7 @@ mod tests {
     #[test]
     fn get_arc_cookie_test() {
         let browser = KnownBrowser::Arc;
-        let browser_cookies = find_cookies_at(
+        let browser_cookies = find_cookies(
             browser,
             browser.default_config_path().as_ref().unwrap(),
             HostKey::from("*"),
